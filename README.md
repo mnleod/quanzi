@@ -21,7 +21,7 @@ use as module
 ```python
 from quanzi import UndirectQuanzi
 q = UndirectQuanzi()
-q.read_csv("~/input.csv")
+q.set_input(dataframe)
 result = q.run()
 ```
 use to generate output

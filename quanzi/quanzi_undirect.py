@@ -2,9 +2,6 @@ from .quanzi import Quanzi
 
 
 class UndirectQuanzi(Quanzi):
-    def __init__(self, threshold=0.1, **kwargs):
-        super(UndirectQuanzi, self).__init__(**kwargs)
-        self._threshold = threshold
 
     def _calc(self):
         Matrix = self._input.to_numpy()

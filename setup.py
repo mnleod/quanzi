@@ -11,7 +11,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.md')) as f:
 
 setup(
     name='quanzi',
-    version='0.2',
+    version='0.5',
     description='How to compute guanxi circle',
     long_description=long_description,
     author='yuezhang18',
