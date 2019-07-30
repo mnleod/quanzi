@@ -32,7 +32,7 @@ class Quanzi(object):
             assert all(str(i) == c for i, c in zip(self._input.index, self._input.columns))
         self._calc()
         self._logger.debug("Output:\n{}".format(pformat(self._output)))
-        return self._output
+        return self._desc
 
     def to_csv(self, filepath, **kwargs):
         assert self._output is not None
@@ -120,22 +120,26 @@ class Quanzi(object):
 
     def _format(self, Q, Qs, Bridges, n):
         names = dict(zip(range(n), self._input.columns))
+        supervisor = names[0]
+        desc = {supervisor: {'quanzi-core': [supervisor], 'quanzi': [supervisor]}}
         results = defaultdict(lambda: {'desc': [], 'tag': []})
-        results[0] = {'desc': ['supervisor'], 'tag': ["0"], 'quanzi-core': [0], 'quanzi': [0]}
+        results[0] = {'desc': ['supervisor'], 'tag': ["0"]}
         for m in Q['core member']:
             results[m]['desc'].append("core member")
             results[m]['tag'].append("1")
-            results[0]['quanzi'].append(m)
-            results[0]['quanzi-core'].append(m)
+            desc[supervisor]['quanzi'].append(names[m])
+            desc[supervisor]['quanzi-core'].append(names[m])
         for m in Q['peripheral']:
             results[m]['desc'].append("peripheral")
             results[m]['tag'].append("2")
-            results[0]['quanzi'].append(m)
+            desc[supervisor]['quanzi'].append(names[m])
         for m, ms in Qs.items():
             results[m]['desc'].append("informal leader")
             results[m]['tag'].append("3")
-            results[m]['quanzi'] = [m] + ms
+            name = names[m]
+            desc[name] = {'quanzi': [name]}
             for _m in ms:
+                desc[name]['quanzi'].append(names[_m])
                 results[_m]['desc'].append("informal leader {}'s core member".format(names[m]))
                 results[_m]['tag'].append("4")
         for m, ms in Bridges.items():
@@ -148,3 +152,4 @@ class Quanzi(object):
                 results[m]['tag'].append("6")
             results[m]['name'] = names[m]
         self._output = results
+        self._desc = desc
