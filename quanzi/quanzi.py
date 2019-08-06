@@ -2,6 +2,7 @@ import logging
 import pandas as pd
 import numpy as np
 import networkx as nx
+import matplotlib.pyplot as plt
 
 from collections import defaultdict
 from pprint import pformat
@@ -13,19 +14,23 @@ class Quanzi(object):
         super(Quanzi, self).__init__()
         self._input = None
         self._output = None
+        self._guanxi = None
+        self._sindex = None
         self._threshold = threshold
 
         logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s', level=log_level)
         self._logger = logging.getLogger('Quanzi')
 
     def set_input(self, dataframe):
-        assert isinstance(dataframe, pd.DataFrame)
+        assert isinstance(dataframe, pd.DataFrame), "input must be a dataframe"
         self._input = dataframe
 
     def read_csv(self, filepath, **kwargs):
         self._input = pd.read_csv(filepath, index_col=0, **kwargs)
 
     def run(self):
+        assert self._input.shape[0] == self._input.shape[1], "dataframe must be a square matrix"
+        assert self._input.shape[0] >= 3
         if self._input.index.dtype == self._input.columns.dtype:
             assert all(i == c for i, c in zip(self._input.index, self._input.columns))
         else:
@@ -41,6 +46,11 @@ class Quanzi(object):
         df['tag'] = df['tag'].apply(lambda v: ",".join(v))
         df[['name', 'desc', 'tag']].to_csv(filepath, index=False, **kwargs)
 
+    def get_guanxi(self):
+        df = pd.DataFrame(self._guanxi[self._sindex])
+        df.index = self._input.columns[self._sindex]
+        return df
+
     def _calc_guanxi(self, M, n):
         # connections from j with strong connections to colleagues k,
         #   who have strong connections to supervisor i
@@ -51,16 +61,15 @@ class Quanzi(object):
         if S.max() > 0:
             G += (S - S.min()) / (S.max() - S.min())
         self._logger.debug("guanxi is {}".format(G))
-        G_std = (G - G.min(axis=0)) / (G.max(axis=0) - G.min(axis=0)) * 6
-        self._logger.debug("guanxi std is: {}".format(G_std))
-        return G_std
+        self._guanxi = (G - G.min(axis=0)) / (G.max(axis=0) - G.min(axis=0)) * 6
+        self._logger.debug("guanxi std is: {}".format(self._guanxi))
 
-    def _calc_quanzi_leader(self, G):
+    def _calc_quanzi_leader(self):
         def find_cliff(c):
             return np.argmin(abs(G_s[idx_c] - c + G_s[idx_c + 1] - c))
         # ranking G
-        idx = G.argsort()[::-1]
-        G_s = G[idx]
+        self._sindex = self._guanxi.argsort()[::-1]
+        G_s = self._guanxi[self._sindex]
         # finding "cliffs"
         G_d = G_s[:-1] - G_s[1:]
         idx_c = np.argwhere(G_d > self._threshold)
@@ -87,8 +96,8 @@ class Quanzi(object):
                 peri_i = idx_c[0][0]
 
         results = {
-            'core member': (idx[:core_i + 1] + 1).tolist() if core_i else [],
-            'peripheral': (idx[core_i + 1:peri_i + 1] + 1) .tolist() if core_i and peri_i else [],
+            'core member': (self._sindex[:core_i + 1] + 1).tolist() if core_i else [],
+            'peripheral': (self._sindex[core_i + 1:peri_i + 1] + 1) .tolist() if core_i and peri_i else [],
         }
         self._logger.debug("leader quanzi: {}".format(results))
         return results
