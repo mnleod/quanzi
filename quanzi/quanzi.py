@@ -17,6 +17,7 @@ class Quanzi(object):
         self._guanxi = None
         self._sindex = None
         self._threshold = threshold
+        self._desc = None
 
         logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s', level=log_level)
         self._logger = logging.getLogger('Quanzi')
@@ -28,13 +29,16 @@ class Quanzi(object):
     def read_csv(self, filepath, **kwargs):
         self._input = pd.read_csv(filepath, index_col=0, **kwargs)
 
-    def run(self):
-        assert self._input.shape[0] == self._input.shape[1], "dataframe must be a square matrix"
-        assert self._input.shape[0] >= 3
-        if self._input.index.dtype == self._input.columns.dtype:
-            assert all(i == c for i, c in zip(self._input.index, self._input.columns))
+    def _check_input(self, _input):
+        assert _input.shape[0] == _input.shape[1], "dataframe must be a square matrix"
+        assert _input.shape[0] >= 3
+        if _input.index.dtype == _input.columns.dtype:
+            assert all(i == c for i, c in zip(_input.index, _input.columns))
         else:
-            assert all(str(i) == c for i, c in zip(self._input.index, self._input.columns))
+            assert all(str(i) == c for i, c in zip(_input.index, _input.columns))
+
+    def run(self):
+        self._check_input(self._input)
         self._calc()
         self._logger.debug("Output:\n{}".format(pformat(self._output)))
         return self._desc
@@ -51,7 +55,8 @@ class Quanzi(object):
         df.index = self._input.columns[self._sindex]
         return df
 
-    def _calc_guanxi(self, M, n):
+    def _calc_guanxi(self, M, n, need_std=True):
+        np.fill_diagonal(M, 0)
         # connections from j with strong connections to colleagues k,
         #   who have strong connections to supervisor i
         # ∑(M[j,k] * M[k, 0])
@@ -59,9 +64,12 @@ class Quanzi(object):
         # measures the extent to which actor j is central in the guanxi circle around supervisor i
         G = M[0, 1:].astype(float)
         if S.max() > 0:
-            G += (S - S.min()) / (S.max() - S.min())
+            G += 3 * (S - S.min()) / (S.max() - S.min())
         self._logger.debug("guanxi is {}".format(G))
-        self._guanxi = (G - G.min(axis=0)) / (G.max(axis=0) - G.min(axis=0)) * 6
+        if need_std:
+            self._guanxi = (G - G.min(axis=0)) / (G.max(axis=0) - G.min(axis=0)) * 2
+        else:
+            self._guanxi = G
         self._logger.debug("guanxi std is: {}".format(self._guanxi))
 
     def _calc_quanzi_leader(self):
